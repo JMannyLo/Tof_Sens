@@ -1,0 +1,31 @@
+import serial
+import csv
+import time
+import re
+
+print("Opening COM14...")
+ser = serial.Serial('COM7', 115200, timeout=1)
+time.sleep(2)
+print("Connected! Reading...\n")
+
+# CSV setup
+with open("tof_data.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["timestamp_ms", "z_height_mm"])
+
+    while True:
+        raw_bytes = ser.readline()
+        if not raw_bytes:
+            continue
+
+        line = raw_bytes.decode("utf-8", errors="ignore").strip()
+        print(line)   # Print EVERYTHING
+
+        # Extract Z Height from the line
+        # Example line: "Raw: 123 mm | Kalman: 120 | Z Height: 115.4 | ..."
+        match = re.search(r"Z Height:\s*([0-9.]+)", line)
+
+        if match:
+            z = float(match.group(1))
+            timestamp = int(time.time() * 1000)
+            writer.writerow([timestamp, z])
