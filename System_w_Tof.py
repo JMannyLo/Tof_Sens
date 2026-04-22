@@ -1,4 +1,3 @@
-
 import sys
 import time
 import csv
@@ -11,33 +10,44 @@ from PyQt6.QtWidgets import QApplication, QLabel, QWidget, QVBoxLayout
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 
+
+
 # ToF SENSOR THREAD (Z HEIGHT)
+
 
 class ToFWorker(QThread):
     z_updated = pyqtSignal(float, int)
 
-    def __init__(self, port='COM7', baud=115200):
+    def __init__(self, port='/dev/ttyACM0', baud=115200):
         super().__init__()
         self.port = port
         self.baud = baud
         self.running = True
 
     def run(self):
-        ser = serial.Serial(self.port, self.baud, timeout=1)
-        time.sleep(2)
+        try:
+            ser = serial.Serial(self.port, self.baud, timeout=1)
+            time.sleep(2)  # allow Arduino/ToF to reset
+        except Exception as e:
+            print(f"[ToF] Serial connection failed: {e}")
+            return
 
         while self.running:
-            raw_bytes = ser.readline()
-            if not raw_bytes:
-                continue
+            try:
+                raw_bytes = ser.readline()
+                if not raw_bytes:
+                    continue
 
-            line = raw_bytes.decode("utf-8", errors="ignore").strip()
+                line = raw_bytes.decode("utf-8", errors="ignore").strip()
 
-            match = re.search(r"Z Height:\s*([0-9.]+)", line)
-            if match:
-                z = float(match.group(1))
-                timestamp = int(time.time() * 1000)
-                self.z_updated.emit(z, timestamp)
+                match = re.search(r"Z Height:\s*([0-9.]+)", line)
+                if match:
+                    z = float(match.group(1))
+                    timestamp = int(time.time() * 1000)
+                    self.z_updated.emit(z, timestamp)
+
+            except Exception as e:
+                print(f"[ToF] Read error: {e}")
 
         ser.close()
 
@@ -46,8 +56,7 @@ class ToFWorker(QThread):
         self.quit()
         self.wait()
 
-
-#  CAMERA THREAD
+# CAMERA THREAD
 
 class CameraWorker(QThread):
     frame_ready = pyqtSignal(QImage, float, float)  # image, focus, z
@@ -62,38 +71,45 @@ class CameraWorker(QThread):
         from picamera2 import Picamera2
 
         self.picam2 = Picamera2()
+
         config = self.picam2.create_preview_configuration(
             main={"format": "XBGR8888", "size": (640, 480)},
             buffer_count=4,
         )
+
         self.picam2.configure(config)
         self.picam2.start()
+        time.sleep(1)  # stabilize camera
 
     def set_z(self, z):
         self.current_z = z
 
     def run(self):
         while self.running:
-            frame = self.picam2.capture_array()
+            try:
+                frame = self.picam2.capture_array()
 
-            # Convert to RGB
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                # Convert to RGB
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            # Focus metric (Laplacian variance)
-            gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-            focus = cv2.Laplacian(gray, cv2.CV_64F).var()
+                # Focus metric (Laplacian variance)
+                gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+                focus = cv2.Laplacian(gray, cv2.CV_64F).var()
 
-            # Convert to QImage
-            h, w, ch = frame.shape
-            qt_image = QImage(
-                frame.data, w, h, ch * w, QImage.Format.Format_RGB888
-            ).copy()
+                # Convert to QImage
+                h, w, ch = frame.shape
+                qt_image = QImage(
+                    frame.data, w, h, ch * w, QImage.Format.Format_RGB888
+                ).copy()
 
-            z = self.current_z if self.current_z is not None else -1
+                z = self.current_z if self.current_z is not None else -1
 
-            self.frame_ready.emit(qt_image, focus, z)
+                self.frame_ready.emit(qt_image, focus, z)
 
-            self.msleep(10)
+                self.msleep(10)
+
+            except Exception as e:
+                print(f"[Camera] Error: {e}")
 
     def stop(self):
         self.running = False
@@ -105,7 +121,9 @@ class CameraWorker(QThread):
         self.wait()
 
 
+#
 # MAIN GUI APPLICATION
+# 
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -123,10 +141,10 @@ class MainWindow(QWidget):
         # Data
         self.current_z = None
 
-        # *CSV logging*
-        #self.csv_file = open("data_log.csv", "w", newline="")
-        #self.writer = csv.writer(self.csv_file)
-        #self.writer.writerow(["timestamp_ms", "z_height_mm", "focus"])
+        # CSV logging
+        self.csv_file = open("data_log.csv", "w", newline="")
+        self.writer = csv.writer(self.csv_file)
+        self.writer.writerow(["timestamp_ms", "z_height_mm", "focus"])
 
         # Threads
         self.camera = CameraWorker()
@@ -150,17 +168,24 @@ class MainWindow(QWidget):
         timestamp = int(time.time() * 1000)
 
         # Log data
-        self.writer.writerow([timestamp, z, focus])
+        try:
+            self.writer.writerow([timestamp, z, focus])
+        except Exception as e:
+            print(f"[CSV] Write error: {e}")
 
         print(f"Z: {z:.2f} mm | Focus: {focus:.2f}")
 
     def closeEvent(self, event):
+        print("Shutting down...")
         self.camera.stop()
         self.tof.stop()
-        self.csv_file.close()
+        try:
+            self.csv_file.close()
+        except Exception:
+            pass
         event.accept()
 
-
+# RUN APPLICATION
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
