@@ -1,0 +1,16 @@
+source /home/r/python_venv/bin/activate
+(python_venv) r@pi:~ $ source /home/r/python_venv/bin/activate
+(python_venv) r@pi:~ $ /home/r/python_venv/bin/python /home/r/Tof_sens/System_w_Tof.py
+qt.qpa.plugin: Could not find the Qt platform plugin "wayland" in ""
+QStandardPaths: wrong permissions on runtime directory /run/user/1000, 0770 instead of 0700
+[0:58:25.895566444] [5477]  INFO Camera camera_manager.cpp:330 libcamera v0.5.2+99-bfd68f78
+[0:58:25.903605611] [5493]  INFO RPI pisp.cpp:720 libpisp version v1.2.1 981977ff21f3 29-04-2025 (14:13:50)
+[0:58:25.909964156] [5493]  INFO IPAProxy ipa_proxy.cpp:180 Using tuning file /usr/share/libcamera/ipa/rpi/pisp/imx477.json
+[0:58:25.917707824] [5493]  INFO Camera camera_manager.cpp:220 Adding camera '/base/axi/pcie@1000120000/rp1/i2c@80000/imx477@1a' for pipeline handler rpi/pisp
+[0:58:25.917777823] [5493]  INFO RPI pisp.cpp:1179 Registered camera /base/axi/pcie@1000120000/rp1/i2c@80000/imx477@1a to CFE device /dev/media0 and ISP device /dev/media1 using PiSP variant BCM2712_C0
+[0:58:25.921708990] [5477]  INFO Camera camera.cpp:1215 configuring streams: (0) 640x480-XBGR8888/sRGB (1) 1332x990-BGGR_PISP_COMP1/RAW
+[0:58:25.921883601] [5493]  INFO RPI pisp.cpp:1483 Sensor: /base/axi/pcie@1000120000/rp1/i2c@80000/imx477@1a - Selected sensor format: 1332x990-SBGGR12_1X12/RAW - Selected CFE format: 1332x990-PC1B/RAW
+[0:58:27.448416460] [5493]  WARN V4L2 v4l2_videodevice.cpp:2155 /dev/video4[21:cap]: Dequeue timer of 1000000.00us has expired!
+[0:58:27.448487275] [5493] ERROR RPI pipeline_base.cpp:1346 Camera frontend has timed out!
+[0:58:27.448503775] [5493] ERROR RPI pipeline_base.cpp:1347 Please check that your camera sensor connector is attached securely.
+[0:58:27.448514497] [5493] ERROR RPI pipeline_base.cpp:1348 Alternatively, try another cable and/or sensor.
